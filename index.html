@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Překladač keylogeru</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 10px;
+            font-size: 14px;
+            font-family: monospace;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .output-section {
+            margin-top: 20px;
+        }
+        #copyButton {
+            background-color: #2196F3;
+        }
+        #copyButton:hover {
+            background-color: #0b7dda;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .type-password {
+            background-color: #ffcccc;
+            color: #cc0000;
+            font-weight: bold;
+        }
+        .type-email {
+            background-color: #ccddff;
+            color: #0000cc;
+            font-weight: bold;
+        }
+        .type-ip {
+            background-color: #ccffcc;
+            color: #006600;
+            font-weight: bold;
+        }
+    </style>
+</head><body>
+    <h1>Překladač keylogeru</h1>
+    <p>Tenhle kód je destruktivní! Vždycky měj uložený hlavní keylog soubor bokem!</p>
+    <div>
+        <label for="inputArea">Vstup (výstup z keylogeru):</label>
+        <textarea id="inputArea" placeholder="Enter keylog text here, e.g., test[Space][Sh]U[Sh]pper"></textarea>
+    </div>
+    
+    <div class="controls">
+        <label>
+            <input type="checkbox" id="cursorTrackingToggle" checked>
+            Povolit sledování kurzoru (Šipky vlevo/vpravo, Backspace, Delete)
+        </label>
+        <button id="translateButton">Přeložit</button>
+            <button id="copyButton">Zkopírovat výsledek</button>
+    </div>
+    
+    <div class="output-section">
+        <label for="outputArea">Výsledek:</label>
+        <textarea id="outputArea" readonly></textarea>
+    </div>
+
+    <div class="output-section">
+        <label>Potenciální důležitá slova:</label>
+        <table id="potentialWordsTable">
+            <thead>
+                <tr>
+                    <th>Typ</th>
+                    <th>Slovo</th>
+                    <th>Před</th>
+                    <th>Po</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function parseKeylog(input, enableCursorTracking = true) {
+            // Remove all line breaks from the input
+            input = input.replace(/[\r\n]/g, "");
+            
+            let result = "";
+            let cursorPos = 0; // Track cursor position
+            let shift = false;
+            let i = 0;
+
+            while (i < input.length) {
+                if (input[i] === "[") {
+                    let endBracket = input.indexOf("]", i);
+                    if (endBracket !== -1) {
+                        let keyCode = input.substring(i + 1, endBracket);
+                        
+                        if (keyCode === "Space") {
+                            if (enableCursorTracking) {
+                                result = result.slice(0, cursorPos) + " " + result.slice(cursorPos);
+                                cursorPos++;
+                            } else {
+                                result += " ";
+                            }
+                        } else if (keyCode === "Sh") {
+                            //shift = !shift; discard this, don't know a use for it
+                        } else if (keyCode === "Tab") {
+                            if (enableCursorTracking) {
+                                result = result.slice(0, cursorPos) + "    " + result.slice(cursorPos);
+                                cursorPos++;
+                            } else {
+                                result += "   ";
+                            }
+                        } 
+                        else if (keyCode === "Ent") {
+                            if (enableCursorTracking) {
+                                result = result.slice(0, cursorPos) + "\n" + result.slice(cursorPos);
+                                cursorPos++;
+                            } else {
+                                result += "\n";
+                            }
+                        } else if (keyCode === "Lft") {
+                            if (enableCursorTracking) {
+                                // Move cursor left
+                                if (cursorPos > 0) {
+                                    cursorPos--;
+                                }
+                            } else {
+                                result += "←";
+                            }
+                        } else if (keyCode === "Rgh") {
+                            if (enableCursorTracking) {
+                                // Move cursor right
+                                if (cursorPos < result.length) {
+                                    cursorPos++;
+                                }
+                            } else {
+                                result += "→";
+                            }
+                        } else if (keyCode === "Up") {
+                            if (enableCursorTracking) {
+                                // Move cursor to beginning of line
+                                let lineStart = result.lastIndexOf("\n", cursorPos - 1);
+                                cursorPos = lineStart === -1 ? 0 : lineStart + 1;
+                            } else {
+                                result += "↑";
+                            }
+                        } else if (keyCode === "Dwn") {
+                            if (enableCursorTracking) {
+                                // Move cursor to end of line
+                                let lineEnd = result.indexOf("\n", cursorPos);
+                                cursorPos = lineEnd === -1 ? result.length : lineEnd;
+                            } else {
+                                result += "↓";
+                            }
+                        } else if (keyCode === "Bck" && enableCursorTracking) {
+                                // Backspace: remove character before cursor
+                                if (cursorPos > 0) {
+                                    result = result.slice(0, cursorPos - 1) + result.slice(cursorPos);
+                                    cursorPos--;
+                                }
+                        } else if (keyCode === "Del" && enableCursorTracking) {
+                                // Delete: remove character at cursor
+                                if (cursorPos < result.length) {
+                                    result = result.slice(0, cursorPos) + result.slice(cursorPos + 1);
+                                }
+                        } else if (keyCode[1] === 'N') {
+                            if (enableCursorTracking) {
+                                result = result.slice(0, cursorPos) + keyCode[0] + result.slice(cursorPos);
+                                cursorPos++;
+                            } else {
+                                result += keyCode[0];
+                            }
+                        } else {
+                            if (enableCursorTracking) {
+                                result = result.slice(0, cursorPos) + `[${keyCode}]` + result.slice(cursorPos);
+                                cursorPos += keyCode.length + 2;
+                            } else {
+                                result += `[${keyCode}]`;
+                            }
+                        }
+                        
+                        i = endBracket + 1;
+                        continue;
+                    }
+                }
+                
+                let char = input[i];
+                
+                if (enableCursorTracking) {
+                    result = result.slice(0, cursorPos) + char + result.slice(cursorPos);
+                    cursorPos++;
+                } else {
+                    result += char;
+                }
+                
+                i++;
+            }
+
+            return result;
+        }
+
+        function extractWords(text) {
+            // Remove extra whitespace and split by spaces, newlines, and other delimiters
+            const words = text
+                .trim()
+                .split(/\s+/)
+                .filter(word => word.length > 0);
+            
+            return words;
+        }
+
+        function analyze(words) {
+            var goodWords = [];
+            for (let word of words) {
+                if (word.length > 7 && specialChars(word) >= 3) {
+                    goodWords.push([word, "password"]);
+                } else if (/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(word)) {
+                    goodWords.push([word, "email"]);
+                }else if (/\b(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))\b/.test(word)) {
+                    goodWords.push([word, "ip"]);
+                }
+            }
+            return goodWords;
+        }
+        function specialChars(word) { //returns number of different categories of characters. Categories: uppercase, lowercase, digits, special characters
+            let categories = {
+                uppercase: false,
+                lowercase: false,
+                digits: false,
+                special: false
+            };
+
+            for (let i = 0; i < word.length; i++) {
+                const char = word[i];
+                
+                if (/[A-Z]/.test(char)) {
+                    categories.uppercase = true;
+                } else if (/[a-z]/.test(char)) {
+                    categories.lowercase = true;
+                } else if (/[0-9]/.test(char)) {
+                    categories.digits = true;
+                } else {
+                    categories.special = true;
+                }
+            }
+
+            return Object.values(categories).filter(Boolean).length;
+        }
+
+        document.getElementById("translateButton").addEventListener("click", function() {
+            const inputText = document.getElementById("inputArea").value;
+            const enableCursorTracking = document.getElementById("cursorTrackingToggle").checked;
+            const translatedText = parseKeylog(inputText, enableCursorTracking);
+            document.getElementById("outputArea").value = translatedText;
+
+            // analyse immediately after translation
+            const words = extractWords(translatedText);
+            var potentials = analyze(words);
+            
+            const tableBody = document.getElementById("tableBody");
+            tableBody.innerHTML = "";
+            
+            potentials.forEach(([word, type]) => {
+                const wordIndex = words.indexOf(word);
+                const beforeWord = wordIndex > 0 ? words[wordIndex - 1] : "";
+                const afterWord = wordIndex < words.length - 1 ? words[wordIndex + 1] : "";
+                
+                const row = document.createElement("tr");
+                var styl = "";
+                if (type == "password") {
+                    styl = "type-password";
+                } else if (type == "email") {
+                    styl = "type-email";
+                } else if (type == "ip") {
+                    styl = "type-ip";
+                }
+                row.innerHTML = `
+                    <td class="${styl}">${type}</td>
+                    <td><strong>${word}</strong></td>
+                    <td>${beforeWord}</td>
+                    <td>${afterWord}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        });
+
+        document.getElementById("copyButton").addEventListener("click", function() {
+            const outputArea = document.getElementById("outputArea");
+            outputArea.select();
+            document.execCommand("copy");
+            
+            // Visual feedback
+            const originalText = this.textContent;
+            this.textContent = "Copied!";
+            setTimeout(() => {
+                this.textContent = originalText;
+            }, 2000);
+        });
+        
+    </script>
+</body>
+</html>
